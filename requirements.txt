@@ -3,5 +3,7 @@ pandas
 numpy
 duckdb
 altair
+boto3
+s3fs
 
 

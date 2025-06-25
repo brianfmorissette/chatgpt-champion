@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import json
 import altair as alt
+from data_loader import load_data_from_s3
 
 # =============================================================================
 # Main App Function
@@ -13,31 +14,6 @@ def create_champions_dashboard(df):
     It takes the raw dataframe, processes it, and displays the analysis.
     """
     st.set_page_config(layout="wide", page_title="ChatGPT Champions Dashboard", initial_sidebar_state="expanded")
-
-    # --- Password Protection ---
-    def check_password():
-        """Returns `True` if the user has the correct password."""
-        if st.session_state.get("password_correct", False):
-            return True
-
-        with st.form("Password"):
-            st.title("🔐 Password Required")
-            password = st.text_input("Please enter the password to continue", type="password")
-            submitted = st.form_submit_button("Enter")
-
-            # Load password from Streamlit secrets
-            correct_password = st.secrets["password"]
-
-            if submitted:
-                if password == correct_password:
-                    st.session_state["password_correct"] = True
-                    st.rerun()
-                else:
-                    st.error("The password you entered is incorrect.")
-        return False
-
-    if not check_password():
-        st.stop()
 
     # --- Sidebar for Controls ---
     with st.sidebar:
@@ -270,9 +246,9 @@ def create_champions_dashboard(df):
 if __name__ == '__main__':
     try:
         # This is where you would have your dataframe `df`
-        full_df = pd.read_csv("sample_data.csv")
+        full_df = load_data_from_s3("Weekly")
         create_champions_dashboard(full_df)
     except FileNotFoundError:
-        st.error("Fatal Error: The data file 'sample_data.csv' could not be found.")
+        st.error("Fatal Error: The data file '2025-06-25T16-53_export.csv' could not be found.")
         st.write("Please ensure the data file is available before running the app.")
 
