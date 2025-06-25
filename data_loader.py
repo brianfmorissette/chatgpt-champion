@@ -86,6 +86,7 @@ def load_data_from_s3(report_type):
                 last_day_active_in_period,
                 messages,
                 model_to_messages,
+                tool_to_messages,
                 gpts_messaged,
                 projects_created,
                 created_or_invited_date,

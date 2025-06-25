@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import json
+import altair as alt
 from data_loader import load_data_from_s3
 
 # =============================================================================
@@ -12,7 +13,7 @@ def create_champions_dashboard(df):
     The main function to create the Streamlit dashboard.
     It takes the raw dataframe, processes it, and displays the analysis.
     """
-    st.set_page_config(layout="wide", page_title="ChatGPT Champions Dashboard")
+    st.set_page_config(layout="wide", page_title="ChatGPT Champions Dashboard", initial_sidebar_state="expanded")
 
     # --- Sidebar for Controls ---
     with st.sidebar:
@@ -65,6 +66,9 @@ def create_champions_dashboard(df):
 
         df_processed['name'] = df_processed['name'].fillna('Unknown User')
         df_processed['email'] = df_processed['email'].fillna('Unknown Email')
+        df_processed['company'] = df_processed['company'].fillna('N/A').astype(str)
+        if 'pbu' in df_processed.columns:
+            df_processed['pbu'] = df_processed['pbu'].fillna('N/A').astype(str)
         
         # Ensure period_end is a datetime object for proper sorting
         df_processed['period_end'] = pd.to_datetime(df_processed['period_end'])
@@ -90,7 +94,8 @@ def create_champions_dashboard(df):
         df_processed['tool_norm'] = (df_processed['num_tools_used'] - df_processed['num_tools_used'].min()) / (df_processed['num_tools_used'].max() - df_processed['num_tools_used'].min())
         
         # Handle cases where max and min are the same (results in NaN)
-        df_processed.fillna(0, inplace=True)
+        norm_cols = ['msg_norm', 'model_norm', 'gpts_norm', 'projects_norm', 'tool_norm']
+        df_processed[norm_cols] = df_processed[norm_cols].fillna(0)
 
         # --- Calculate the Weekly Champion Score ---
         df_processed['champion_score'] = (
@@ -105,9 +110,9 @@ def create_champions_dashboard(df):
 
     # --- Aggregate Data for All-Time Analysis ---
     @st.cache_data
-    def get_all_time_champions(_df_processed):
+    def get_all_time_champions(df_processed):
         # Filter out users with no activity to clean up the list
-        active_users_df = _df_processed[_df_processed['messages'] > 0]
+        active_users_df = df_processed[df_processed['messages'] > 0]
 
         # Group by user to calculate all-time stats
         agg_champions = active_users_df.groupby(['name', 'email', 'company']).agg(
@@ -149,7 +154,7 @@ def create_champions_dashboard(df):
             num_champions = st.slider(
                 "Select number of top champions to display:",
                 min_value=5,
-                max_value=50,
+                max_value=100,
                 value=10,
                 step=5
             )
@@ -194,12 +199,18 @@ def create_champions_dashboard(df):
             # --- Chart: Champion Score Over Time ---
             st.markdown("#### Weekly Champion Score Trend")
             
-            # Create a chart-friendly dataframe
-            chart_data = user_data[['period_end', 'champion_score']].set_index('period_end')
+            # Create a chart-friendly dataframe for Altair
+            chart_data = user_data[['period_end', 'champion_score']].reset_index()
 
             # Check if there is data to plot
             if not chart_data.empty:
-                st.line_chart(chart_data)
+                # Use Altair for more control over the chart
+                chart = alt.Chart(chart_data).mark_line(point=True).encode(
+                    x=alt.X('period_end:T', title='Week', axis=alt.Axis(format="%Y-%m-%d")),
+                    y=alt.Y('champion_score:Q', title='Weekly Champion Score'),
+                    tooltip=['period_end', 'champion_score']
+                ).interactive()
+                st.altair_chart(chart, use_container_width=True)
             else:
                 st.warning("No weekly score data available to display for this user.")
 
